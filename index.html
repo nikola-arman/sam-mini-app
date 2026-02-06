@@ -527,24 +527,65 @@
         const response = await fetch(url);
         const blob = await response.blob();
         const reader = new FileReader();
-        reader.onload = (e) => {
-          setSelectedImage(e.target.result);
+        reader.onload = async (e) => {
+          await setSelectedImage(e.target.result);
         };
         reader.readAsDataURL(blob);
       } catch (err) {
         console.error('Failed to load sample:', err);
+        alert('Failed to load sample image');
       }
     }
     
-    function setSelectedImage(dataUrl) {
-      selectedImage = dataUrl;
-      originalImage = dataUrl;
+    // Compress image to max dimensions and quality
+    async function compressImage(dataUrl, maxSize = 1024, quality = 0.8) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+          
+          // Scale down if needed
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = Math.round(height * maxSize / width);
+              width = maxSize;
+            } else {
+              width = Math.round(width * maxSize / height);
+              height = maxSize;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = dataUrl;
+      });
+    }
+    
+    async function setSelectedImage(dataUrl) {
+      // Show loading state
       const area = document.getElementById('uploadArea');
+      area.innerHTML = `<div style="padding:40px;text-align:center;">Optimizing...</div>`;
+      area.classList.add('has-image');
+      
+      // Compress image
+      const compressed = await compressImage(dataUrl, 1024, 0.85);
+      selectedImage = compressed;
+      originalImage = compressed;
+      
       area.innerHTML = `
-        <img src="${dataUrl}" alt="Selected">
+        <img src="${compressed}" alt="Selected">
         <span class="change-hint">Tap to change</span>
       `;
-      area.classList.add('has-image');
+      
+      // Log size for debugging
+      const sizeKB = Math.round(compressed.length * 0.75 / 1024);
+      console.log(`Image compressed to ~${sizeKB}KB`);
     }
     
     // File upload handler
@@ -554,7 +595,9 @@
       
       haptic('medium');
       const reader = new FileReader();
-      reader.onload = (e) => setSelectedImage(e.target.result);
+      reader.onload = async (e) => {
+        await setSelectedImage(e.target.result);
+      };
       reader.readAsDataURL(file);
     });
     
@@ -623,7 +666,14 @@
         });
         
         const data = await response.json();
-        if (!data.request_id) throw new Error('Failed to start');
+        console.log('API response:', data);
+        
+        if (!response.ok) {
+          throw new Error(data.error || data.message || `API error ${response.status}`);
+        }
+        if (!data.request_id) {
+          throw new Error(data.error || data.message || 'No request ID returned');
+        }
         
         const result = await pollResult(data.request_id, jobId, progressBar);
         
