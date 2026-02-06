@@ -27,11 +27,23 @@
       margin-bottom: 16px;
     }
     .upload-area:hover { border-color: var(--tg-theme-button-color, #7c3aed); }
-    .upload-area.has-image { padding: 0; border: none; }
+    .upload-area.has-image { 
+      padding: 8px; 
+      border: 1px solid var(--tg-theme-hint-color, #333);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
     .upload-area img { 
-      max-width: 100%; 
-      border-radius: 16px;
-      display: block;
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+    .upload-area .change-text {
+      font-size: 14px;
+      color: var(--tg-theme-hint-color, #888);
     }
     .upload-area .icon { font-size: 48px; margin-bottom: 8px; }
     
@@ -284,7 +296,10 @@
       reader.onload = (e) => {
         selectedImage = e.target.result;
         const area = document.getElementById('uploadArea');
-        area.innerHTML = `<img src="${selectedImage}" alt="Selected">`;
+        area.innerHTML = `
+          <img src="${selectedImage}" alt="Selected">
+          <span class="change-text">Tap to change image</span>
+        `;
         area.classList.add('has-image');
         updateButton();
       };
