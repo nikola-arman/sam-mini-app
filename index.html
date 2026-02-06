@@ -72,18 +72,6 @@
     }
     .preset-btn .emoji { font-size: 20px; display: block; margin-bottom: 4px; }
     
-    .prompt-input {
-      width: 100%;
-      padding: 14px 16px;
-      border: 1px solid var(--tg-theme-hint-color, #333);
-      border-radius: 12px;
-      background: var(--tg-theme-secondary-bg-color, #16213e);
-      color: var(--tg-theme-text-color, #fff);
-      font-size: 16px;
-      margin-bottom: 16px;
-    }
-    .prompt-input:focus { outline: none; border-color: var(--tg-theme-button-color, #7c3aed); }
-    
     .type-toggle {
       display: flex;
       gap: 8px;
@@ -104,20 +92,6 @@
       background: var(--tg-theme-button-color, #7c3aed);
       border-color: var(--tg-theme-button-color, #7c3aed);
     }
-    
-    .generate-btn {
-      width: 100%;
-      padding: 16px;
-      border: none;
-      border-radius: 12px;
-      background: var(--tg-theme-button-color, #7c3aed);
-      color: var(--tg-theme-button-text-color, #fff);
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     
     .result-area {
       margin-top: 20px;
@@ -202,16 +176,12 @@
     </div>
     <input type="file" id="fileInput" accept="image/*">
     
-    <div class="presets" id="presets"></div>
-    
-    <input type="text" class="prompt-input" id="prompt" placeholder="Or describe what you want...">
-    
     <div class="type-toggle">
       <button class="type-btn active" data-type="image" onclick="setType('image')">🖼️ Image</button>
       <button class="type-btn" data-type="video" onclick="setType('video')">🎬 Video</button>
     </div>
     
-    <button class="generate-btn" id="generateBtn" onclick="generate()" disabled>Generate ✨</button>
+    <div class="presets" id="presets"></div>
     
     <div class="result-area" id="resultArea"></div>
   </div>
@@ -220,13 +190,22 @@
     const API_KEY = 'sa_e5593aa4321e8f12408468cf035ddb7d4bf704a02f16cad0da651bffb341a419';
     const API_URL = 'https://open.eternalai.org';
     
-    const PRESETS = [
+    const IMAGE_PRESETS = [
       { emoji: "🔥", label: "Undress", prompt: "Make nude completely. Keep everything else unchanged" },
       { emoji: "👙", label: "Bikini", prompt: "Change clothes to a bikini. Keep everything else unchanged." },
       { emoji: "🩱", label: "Lingerie", prompt: "Change clothes to a lace lingerie. Keep everything else unchanged." },
       { emoji: "🐰", label: "Bunny", prompt: "Reimagine as bunny girl cosplay, fitted bodysuit and accessories" },
       { emoji: "🛁", label: "Towel", prompt: "Replace clothes with small bath towel, wet skin, steamy" },
       { emoji: "🐱", label: "Catwoman", prompt: "Replace with Catwoman-inspired latex outfit" },
+    ];
+    
+    const VIDEO_PRESETS = [
+      { emoji: "🔥", label: "Undress", prompt: "The woman quickly takes off her clothes from top to bottom, show her nude body" },
+      { emoji: "🍑", label: "Twerk", prompt: "The subject turns away from the viewer and twerks causing ass to jiggle and shake" },
+      { emoji: "💋", label: "Kiss", prompt: "She blows a kiss to the camera and winks" },
+      { emoji: "🙈", label: "Cleavage", prompt: "Bends forward to show her cleavage, use one hand to pull and release the collar" },
+      { emoji: "💃", label: "Dance", prompt: "She dances sensually, moving her hips and body to music" },
+      { emoji: "😘", label: "Wink", prompt: "She winks and smiles seductively at the camera" },
     ];
     
     let selectedImage = null;
@@ -241,10 +220,11 @@
       tg.expand();
     }
     
-    // Render presets
+    // Render presets based on current type
     function renderPresets() {
+      const presets = selectedType === 'video' ? VIDEO_PRESETS : IMAGE_PRESETS;
       const container = document.getElementById('presets');
-      container.innerHTML = PRESETS.map((p, i) => `
+      container.innerHTML = presets.map((p, i) => `
         <button class="preset-btn" data-index="${i}" onclick="selectPreset(${i})">
           <span class="emoji">${p.emoji}</span>
           ${p.label}
@@ -259,7 +239,8 @@
         return;
       }
       
-      const preset = PRESETS[index];
+      const presets = selectedType === 'video' ? VIDEO_PRESETS : IMAGE_PRESETS;
+      const preset = presets[index];
       const btn = document.querySelectorAll('.preset-btn')[index];
       
       // Check if already running
@@ -292,7 +273,6 @@
           <span class="change-text">Tap to change image</span>
         `;
         area.classList.add('has-image');
-        updateButton();
       };
       reader.readAsDataURL(file);
     });
@@ -302,19 +282,8 @@
       document.querySelectorAll('.type-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.type === type);
       });
+      renderPresets(); // Re-render presets for new type
     }
-    
-    function updateButton() {
-      const btn = document.getElementById('generateBtn');
-      const prompt = document.getElementById('prompt').value.trim();
-      btn.disabled = !selectedImage || !prompt;
-    }
-    
-    document.getElementById('prompt').addEventListener('input', () => {
-      selectedPreset = null;
-      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
-      updateButton();
-    });
     
     async function generatePreset(index, preset) {
       const resultArea = document.getElementById('resultArea');
@@ -379,66 +348,6 @@
         const btn = document.querySelectorAll('.preset-btn')[index];
         btn.classList.remove('active');
         btn.style.opacity = '1';
-      }
-    }
-    
-    async function generate() {
-      const prompt = document.getElementById('prompt').value.trim();
-      if (!selectedImage || !prompt) return;
-      
-      const btn = document.getElementById('generateBtn');
-      const resultArea = document.getElementById('resultArea');
-      
-      btn.disabled = true;
-      btn.textContent = 'Generating...';
-      resultArea.innerHTML = '<div class="status"><div class="spinner"></div>Processing your image...</div>';
-      
-      try {
-        // Submit request
-        const response = await fetch(`${API_URL}/base/generate`, {
-          method: 'POST',
-          headers: {
-            'x-api-key': API_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            images: [selectedImage],
-            prompt: prompt,
-            type: selectedType
-          })
-        });
-        
-        const data = await response.json();
-        if (!data.request_id) throw new Error('Failed to start generation');
-        
-        // Poll for result
-        const result = await pollResult(data.request_id);
-        
-        if (result.status === 'success' && result.result_url) {
-          const mediaHtml = selectedType === 'video' 
-            ? `<video src="${result.result_url}" controls autoplay loop></video>`
-            : `<img src="${result.result_url}" alt="Result">`;
-          
-          resultArea.innerHTML = `
-            ${mediaHtml}
-            <div class="result-actions">
-              <button class="result-btn" onclick="saveResult('${result.result_url}')">💾 Save</button>
-              <button class="result-btn" onclick="shareResult('${result.result_url}')">📤 Share</button>
-            </div>
-          `;
-          
-          // Haptic feedback
-          if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-        } else {
-          throw new Error(result.error || 'Generation failed');
-        }
-      } catch (err) {
-        resultArea.innerHTML = `<div class="error">❌ ${err.message}</div>`;
-        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Generate ✨';
-        updateButton();
       }
     }
     
