@@ -227,15 +227,22 @@
     renderPresets();
     
     function selectPreset(index) {
+      if (!selectedImage) {
+        alert('Please upload an image first');
+        return;
+      }
+      
       selectedPreset = index;
       document.querySelectorAll('.preset-btn').forEach((btn, i) => {
         btn.classList.toggle('active', i === index);
       });
       document.getElementById('prompt').value = PRESETS[index].prompt;
-      updateButton();
       
       // Haptic feedback
-      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+      
+      // Auto-generate immediately
+      generate();
     }
     
     // File upload handler
