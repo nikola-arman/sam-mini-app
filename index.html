@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>EternalAI Studio</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--tg-theme-bg-color, #1a1a2e);
+      color: var(--tg-theme-text-color, #fff);
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .container { max-width: 400px; margin: 0 auto; }
+    h1 { font-size: 24px; text-align: center; margin-bottom: 20px; }
+    
+    .upload-area {
+      border: 2px dashed var(--tg-theme-hint-color, #666);
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 16px;
+    }
+    .upload-area:hover { border-color: var(--tg-theme-button-color, #7c3aed); }
+    .upload-area.has-image { padding: 0; border: none; }
+    .upload-area img { 
+      max-width: 100%; 
+      border-radius: 16px;
+      display: block;
+    }
+    .upload-area .icon { font-size: 48px; margin-bottom: 8px; }
+    
+    input[type="file"] { display: none; }
+    
+    .prompt-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--tg-theme-hint-color, #333);
+      border-radius: 12px;
+      background: var(--tg-theme-secondary-bg-color, #16213e);
+      color: var(--tg-theme-text-color, #fff);
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+    .prompt-input:focus { outline: none; border-color: var(--tg-theme-button-color, #7c3aed); }
+    
+    .type-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .type-btn {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid var(--tg-theme-hint-color, #333);
+      border-radius: 12px;
+      background: var(--tg-theme-secondary-bg-color, #16213e);
+      color: var(--tg-theme-text-color, #fff);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .type-btn.active {
+      background: var(--tg-theme-button-color, #7c3aed);
+      border-color: var(--tg-theme-button-color, #7c3aed);
+    }
+    
+    .generate-btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      background: var(--tg-theme-button-color, #7c3aed);
+      color: var(--tg-theme-button-text-color, #fff);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .result-area {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .result-area img, .result-area video {
+      max-width: 100%;
+      border-radius: 16px;
+    }
+    
+    .status {
+      text-align: center;
+      padding: 20px;
+      color: var(--tg-theme-hint-color, #888);
+    }
+    .status .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--tg-theme-hint-color, #333);
+      border-top-color: var(--tg-theme-button-color, #7c3aed);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .error { color: #ef4444; text-align: center; padding: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✨ EternalAI Studio</h1>
+    
+    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📷</div>
+      <div>Tap to upload image</div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*">
+    
+    <input type="text" class="prompt-input" id="prompt" placeholder="Describe what you want...">
+    
+    <div class="type-toggle">
+      <button class="type-btn active" data-type="image" onclick="setType('image')">🖼️ Image</button>
+      <button class="type-btn" data-type="video" onclick="setType('video')">🎬 Video</button>
+    </div>
+    
+    <button class="generate-btn" id="generateBtn" onclick="generate()" disabled>Generate ✨</button>
+    
+    <div class="result-area" id="resultArea"></div>
+  </div>
+
+  <script>
+    const API_KEY = 'sa_e5593aa4321e8f12408468cf035ddb7d4bf704a02f16cad0da651bffb341a419';
+    const API_URL = 'https://open.eternalai.org';
+    
+    let selectedImage = null;
+    let selectedType = 'image';
+    
+    // Initialize Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+    
+    // File upload handler
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        selectedImage = e.target.result;
+        const area = document.getElementById('uploadArea');
+        area.innerHTML = `<img src="${selectedImage}" alt="Selected">`;
+        area.classList.add('has-image');
+        updateButton();
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    function setType(type) {
+      selectedType = type;
+      document.querySelectorAll('.type-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+      });
+    }
+    
+    function updateButton() {
+      const btn = document.getElementById('generateBtn');
+      const prompt = document.getElementById('prompt').value.trim();
+      btn.disabled = !selectedImage || !prompt;
+    }
+    
+    document.getElementById('prompt').addEventListener('input', updateButton);
+    
+    async function generate() {
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!selectedImage || !prompt) return;
+      
+      const btn = document.getElementById('generateBtn');
+      const resultArea = document.getElementById('resultArea');
+      
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      resultArea.innerHTML = '<div class="status"><div class="spinner"></div>Processing your image...</div>';
+      
+      try {
+        // Submit request
+        const response = await fetch(`${API_URL}/base/generate`, {
+          method: 'POST',
+          headers: {
+            'x-api-key': API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            images: [selectedImage],
+            prompt: prompt,
+            type: selectedType
+          })
+        });
+        
+        const data = await response.json();
+        if (!data.request_id) throw new Error('Failed to start generation');
+        
+        // Poll for result
+        const result = await pollResult(data.request_id);
+        
+        if (result.status === 'success' && result.result_url) {
+          if (selectedType === 'video') {
+            resultArea.innerHTML = `<video src="${result.result_url}" controls autoplay loop></video>`;
+          } else {
+            resultArea.innerHTML = `<img src="${result.result_url}" alt="Result">`;
+          }
+          
+          // Haptic feedback
+          if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        } else {
+          throw new Error(result.error || 'Generation failed');
+        }
+      } catch (err) {
+        resultArea.innerHTML = `<div class="error">❌ ${err.message}</div>`;
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate ✨';
+        updateButton();
+      }
+    }
+    
+    async function pollResult(requestId, maxAttempts = 60) {
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        
+        const response = await fetch(`${API_URL}/poll-result/${requestId}`);
+        const data = await response.json();
+        
+        if (data.status === 'success') return data;
+        if (data.status === 'failed') throw new Error('Generation failed');
+        
+        // Update progress
+        if (data.progress > 0) {
+          document.querySelector('.status').innerHTML = 
+            `<div class="spinner"></div>Processing... ${data.progress}%`;
+        }
+      }
+      throw new Error('Timeout waiting for result');
+    }
+  </script>
+</body>
+</html>
