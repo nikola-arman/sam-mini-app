@@ -377,32 +377,15 @@
     async function shareResult(url) {
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
       
-      if (navigator.share) {
-        try {
-          const response = await fetch(url);
-          const blob = await response.blob();
-          const file = new File([blob], `eternalai.${url.includes('.mp4') ? 'mp4' : 'jpg'}`, { type: blob.type });
-          
-          await navigator.share({
-            title: 'EternalAI Creation',
-            files: [file]
-          });
-        } catch (err) {
-          // Fallback: share URL
-          try {
-            await navigator.share({ url });
-          } catch (e) {
-            window.open(url, '_blank');
-          }
-        }
+      // Use Telegram's native share
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent('Made with EternalAI ✨')}`;
+      
+      if (tg?.openTelegramLink) {
+        // Best: native Telegram share dialog
+        tg.openTelegramLink(shareUrl);
       } else {
-        // No Web Share API - copy to clipboard
-        try {
-          await navigator.clipboard.writeText(url);
-          alert('Link copied to clipboard!');
-        } catch (e) {
-          window.open(url, '_blank');
-        }
+        // Fallback: open share link
+        window.open(shareUrl, '_blank');
       }
     }
     
