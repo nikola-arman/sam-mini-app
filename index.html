@@ -230,65 +230,12 @@
       color: var(--hint);
     }
     
-    /* Before/After Comparison */
-    .comparison {
-      position: relative;
-      border-radius: 12px;
-      overflow: hidden;
-      touch-action: none;
-      user-select: none;
-    }
-    .comparison img {
+    /* Result Image */
+    .result-media {
       width: 100%;
+      border-radius: 12px;
       display: block;
     }
-    .comparison .before {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 50%;
-      height: 100%;
-      overflow: hidden;
-    }
-    .comparison .before img {
-      width: 200%;
-      max-width: none;
-    }
-    .comparison .slider {
-      position: absolute;
-      top: 0;
-      left: 50%;
-      width: 4px;
-      height: 100%;
-      background: #fff;
-      cursor: ew-resize;
-      transform: translateX(-50%);
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    }
-    .comparison .slider::before {
-      content: '◀ ▶';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #fff;
-      color: #333;
-      padding: 8px 4px;
-      border-radius: 20px;
-      font-size: 10px;
-      white-space: nowrap;
-    }
-    .comparison .label {
-      position: absolute;
-      bottom: 8px;
-      padding: 4px 8px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      font-size: 11px;
-      border-radius: 4px;
-    }
-    .comparison .label.before-label { left: 8px; }
-    .comparison .label.after-label { right: 8px; }
     
     /* Result Actions */
     .result-actions {
@@ -683,39 +630,22 @@
           // Save to history
           addToHistory({ url: result.result_url, type: selectedType, preset: preset.label });
           
-          // Show comparison view
-          if (selectedType === 'image') {
-            jobCard.innerHTML = `
-              <div class="job-header">
-                <span class="job-title">${preset.emoji} ${preset.label}</span>
-                <button class="job-close" onclick="removeJob('${jobId}', ${index})">✕</button>
-              </div>
-              <div class="comparison" id="compare-${jobId}">
-                <img src="${result.result_url}" alt="After" class="after">
-                <div class="before"><img src="${originalImage}" alt="Before"></div>
-                <div class="slider"></div>
-                <span class="label before-label">Before</span>
-                <span class="label after-label">After</span>
-              </div>
-              <div class="result-actions">
-                <button class="result-btn secondary" onclick="saveResult('${result.result_url}')">💾 Save</button>
-                <button class="result-btn" onclick="shareResult('${result.result_url}')">📤 Share</button>
-              </div>
-            `;
-            initComparison(`compare-${jobId}`);
-          } else {
-            jobCard.innerHTML = `
-              <div class="job-header">
-                <span class="job-title">${preset.emoji} ${preset.label}</span>
-                <button class="job-close" onclick="removeJob('${jobId}', ${index})">✕</button>
-              </div>
-              <video src="${result.result_url}" controls autoplay loop playsinline style="width:100%;border-radius:12px;"></video>
-              <div class="result-actions">
-                <button class="result-btn secondary" onclick="saveResult('${result.result_url}')">💾 Save</button>
-                <button class="result-btn" onclick="shareResult('${result.result_url}')">📤 Share</button>
-              </div>
-            `;
-          }
+          // Show result
+          const mediaHtml = selectedType === 'video'
+            ? `<video src="${result.result_url}" class="result-media" controls autoplay loop playsinline></video>`
+            : `<img src="${result.result_url}" class="result-media" alt="Result">`;
+          
+          jobCard.innerHTML = `
+            <div class="job-header">
+              <span class="job-title">${preset.emoji} ${preset.label}</span>
+              <button class="job-close" onclick="removeJob('${jobId}', ${index})">✕</button>
+            </div>
+            ${mediaHtml}
+            <div class="result-actions">
+              <button class="result-btn secondary" onclick="saveResult('${result.result_url}')">💾 Save</button>
+              <button class="result-btn" onclick="shareResult('${result.result_url}')">📤 Share</button>
+            </div>
+          `;
         } else {
           throw new Error('Generation failed');
         }
@@ -776,33 +706,6 @@
         }
       }
       throw new Error('Timeout');
-    }
-    
-    // Before/After comparison slider
-    function initComparison(id) {
-      const container = document.getElementById(id);
-      if (!container) return;
-      
-      const before = container.querySelector('.before');
-      const slider = container.querySelector('.slider');
-      let isDragging = false;
-      
-      function updatePosition(x) {
-        const rect = container.getBoundingClientRect();
-        let pos = (x - rect.left) / rect.width;
-        pos = Math.max(0.05, Math.min(0.95, pos));
-        before.style.width = `${pos * 100}%`;
-        slider.style.left = `${pos * 100}%`;
-      }
-      
-      container.addEventListener('mousedown', (e) => { isDragging = true; updatePosition(e.clientX); });
-      container.addEventListener('touchstart', (e) => { isDragging = true; updatePosition(e.touches[0].clientX); });
-      
-      document.addEventListener('mousemove', (e) => { if (isDragging) updatePosition(e.clientX); });
-      document.addEventListener('touchmove', (e) => { if (isDragging) updatePosition(e.touches[0].clientX); });
-      
-      document.addEventListener('mouseup', () => isDragging = false);
-      document.addEventListener('touchend', () => isDragging = false);
     }
     
     // History
