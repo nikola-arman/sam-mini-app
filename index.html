@@ -163,6 +163,29 @@
       gap: 8px;
     }
     .result-btn:active { opacity: 0.8; }
+    
+    .job-card {
+      background: var(--tg-theme-secondary-bg-color, #16213e);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .job-header {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--tg-theme-hint-color, #888);
+    }
+    .job-card img, .job-card video {
+      width: 100%;
+      border-radius: 12px;
+    }
+    .job-card .status {
+      padding: 20px 0;
+    }
+    .job-card .result-actions {
+      margin-top: 12px;
+    }
   </style>
 </head>
 <body>
@@ -206,6 +229,7 @@
     let selectedImage = null;
     let selectedType = 'image';
     let selectedPreset = null;
+    let activeJobs = new Map(); // Track parallel generations
     
     // Initialize Telegram WebApp
     const tg = window.Telegram?.WebApp;
@@ -232,17 +256,23 @@
         return;
       }
       
-      selectedPreset = index;
-      document.querySelectorAll('.preset-btn').forEach((btn, i) => {
-        btn.classList.toggle('active', i === index);
-      });
-      document.getElementById('prompt').value = PRESETS[index].prompt;
+      const preset = PRESETS[index];
+      const btn = document.querySelectorAll('.preset-btn')[index];
+      
+      // Check if already running
+      if (activeJobs.has(index)) {
+        return;
+      }
+      
+      // Mark as active
+      btn.classList.add('active');
+      btn.style.opacity = '0.6';
       
       // Haptic feedback
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
       
-      // Auto-generate immediately
-      generate();
+      // Run generation in parallel
+      generatePreset(index, preset);
     }
     
     // File upload handler
@@ -279,6 +309,72 @@
       document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
       updateButton();
     });
+    
+    async function generatePreset(index, preset) {
+      const resultArea = document.getElementById('resultArea');
+      const jobId = `job-${index}-${Date.now()}`;
+      activeJobs.set(index, jobId);
+      
+      // Add result card for this job
+      const jobCard = document.createElement('div');
+      jobCard.id = jobId;
+      jobCard.className = 'job-card';
+      jobCard.innerHTML = `
+        <div class="job-header">${preset.emoji} ${preset.label}</div>
+        <div class="status"><div class="spinner"></div>Processing...</div>
+      `;
+      resultArea.prepend(jobCard);
+      
+      try {
+        const response = await fetch(`${API_URL}/base/generate`, {
+          method: 'POST',
+          headers: {
+            'x-api-key': API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            images: [selectedImage],
+            prompt: preset.prompt,
+            type: selectedType
+          })
+        });
+        
+        const data = await response.json();
+        if (!data.request_id) throw new Error('Failed to start');
+        
+        const result = await pollResult(data.request_id, jobId);
+        
+        if (result.status === 'success' && result.result_url) {
+          const mediaHtml = selectedType === 'video' 
+            ? `<video src="${result.result_url}" controls autoplay loop></video>`
+            : `<img src="${result.result_url}" alt="Result">`;
+          
+          jobCard.innerHTML = `
+            <div class="job-header">${preset.emoji} ${preset.label}</div>
+            ${mediaHtml}
+            <div class="result-actions">
+              <button class="result-btn" onclick="saveResult('${result.result_url}')">💾 Save</button>
+              <button class="result-btn" onclick="shareResult('${result.result_url}')">📤 Share</button>
+            </div>
+          `;
+          
+          if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        } else {
+          throw new Error('Generation failed');
+        }
+      } catch (err) {
+        jobCard.innerHTML = `
+          <div class="job-header">${preset.emoji} ${preset.label}</div>
+          <div class="error">❌ ${err.message}</div>
+        `;
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+      } finally {
+        activeJobs.delete(index);
+        const btn = document.querySelectorAll('.preset-btn')[index];
+        btn.classList.remove('active');
+        btn.style.opacity = '1';
+      }
+    }
     
     async function generate() {
       const prompt = document.getElementById('prompt').value.trim();
@@ -395,7 +491,7 @@
       }
     }
     
-    async function pollResult(requestId, maxAttempts = 60) {
+    async function pollResult(requestId, jobId, maxAttempts = 60) {
       for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, 2000));
         
@@ -405,10 +501,15 @@
         if (data.status === 'success') return data;
         if (data.status === 'failed') throw new Error('Generation failed');
         
-        // Update progress
-        if (data.progress > 0) {
-          document.querySelector('.status').innerHTML = 
-            `<div class="spinner"></div>Processing... ${data.progress}%`;
+        // Update progress for this specific job
+        if (data.progress > 0 && jobId) {
+          const jobCard = document.getElementById(jobId);
+          if (jobCard) {
+            const statusEl = jobCard.querySelector('.status');
+            if (statusEl) {
+              statusEl.innerHTML = `<div class="spinner"></div>Processing... ${data.progress}%`;
+            }
+          }
         }
       }
       throw new Error('Timeout waiting for result');
