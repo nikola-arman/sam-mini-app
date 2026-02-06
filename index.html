@@ -135,17 +135,17 @@
     /* Presets */
     .presets {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
       margin-bottom: 16px;
     }
     .preset-btn {
-      padding: 12px 8px;
+      padding: 10px 4px;
       border: 1px solid color-mix(in srgb, var(--hint) 50%, transparent);
-      border-radius: 12px;
+      border-radius: 10px;
       background: var(--bg2);
       color: var(--text);
-      font-size: 12px;
+      font-size: 10px;
       cursor: pointer;
       transition: all 0.2s;
       text-align: center;
@@ -161,7 +161,7 @@
     .preset-btn.loading {
       pointer-events: none;
     }
-    .preset-btn .emoji { font-size: 20px; display: block; margin-bottom: 4px; }
+    .preset-btn .emoji { font-size: 18px; display: block; margin-bottom: 2px; }
     
     /* Progress Bar */
     .progress-bar {
@@ -328,6 +328,70 @@
       color: var(--hint);
     }
     .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    
+    /* Fullscreen Modal */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-content {
+      max-width: 95vw;
+      max-height: 90vh;
+      border-radius: 12px;
+      transform: scale(0.9);
+      transition: transform 0.3s;
+    }
+    .modal.active .modal-content {
+      transform: scale(1);
+    }
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .modal-actions {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+    }
+    .modal-btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+    }
+    .modal-btn:active { opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -365,6 +429,16 @@
       <div class="history-grid" id="historyGrid"></div>
     </div>
   </div>
+  
+  <!-- Fullscreen Modal -->
+  <div class="modal" id="modal" onclick="closeModal(event)">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <img src="" class="modal-content" id="modalContent">
+    <div class="modal-actions">
+      <button class="modal-btn" id="modalSave">💾 Save</button>
+      <button class="modal-btn" id="modalShare">📤 Share</button>
+    </div>
+  </div>
 
   <script>
     const API_KEY = 'sa_e5593aa4321e8f12408468cf035ddb7d4bf704a02f16cad0da651bffb341a419';
@@ -382,19 +456,31 @@
     const IMAGE_PRESETS = [
       { emoji: "🔥", label: "Undress", prompt: "Make nude completely. Keep everything else unchanged" },
       { emoji: "👙", label: "Bikini", prompt: "Change clothes to a bikini. Keep everything else unchanged." },
-      { emoji: "🩱", label: "Lingerie", prompt: "Change clothes to a lace lingerie. Keep everything else unchanged." },
-      { emoji: "🐰", label: "Bunny", prompt: "Reimagine as bunny girl cosplay, fitted bodysuit and accessories" },
-      { emoji: "🛁", label: "Towel", prompt: "Replace clothes with small bath towel, wet skin, steamy" },
-      { emoji: "🐱", label: "Catwoman", prompt: "Replace with Catwoman-inspired latex outfit" },
+      { emoji: "🩱", label: "Lingerie", prompt: "Change clothes to sexy lace lingerie. Keep everything else unchanged." },
+      { emoji: "🐰", label: "Bunny", prompt: "Reimagine as bunny girl cosplay, fitted bodysuit and bunny ears" },
+      { emoji: "🛁", label: "Towel", prompt: "Replace clothes with small bath towel, wet skin, steamy bathroom" },
+      { emoji: "🐱", label: "Catsuit", prompt: "Replace with tight black latex catsuit, shiny material" },
+      { emoji: "👗", label: "Dress", prompt: "Change to elegant tight red dress, low cut, showing curves" },
+      { emoji: "🏖️", label: "Beach", prompt: "Place on tropical beach, wearing tiny swimsuit, sunny lighting" },
+      { emoji: "🎭", label: "Maid", prompt: "French maid outfit, short skirt, frilly apron and headpiece" },
+      { emoji: "⛓️", label: "Leather", prompt: "Black leather harness outfit, edgy and bold style" },
+      { emoji: "🧚", label: "Fantasy", prompt: "Mystical elf princess, sheer flowing gown, ethereal lighting" },
+      { emoji: "🎀", label: "Schoolgirl", prompt: "Japanese schoolgirl uniform, short plaid skirt, white shirt" },
     ];
     
     const VIDEO_PRESETS = [
-      { emoji: "🔥", label: "Undress", prompt: "The woman quickly takes off her clothes from top to bottom, show her nude body" },
-      { emoji: "🍑", label: "Twerk", prompt: "The subject turns away from the viewer and twerks causing ass to jiggle and shake" },
-      { emoji: "💋", label: "Kiss", prompt: "She blows a kiss to the camera and winks" },
-      { emoji: "🙈", label: "Cleavage", prompt: "Bends forward to show her cleavage, use one hand to pull and release the collar" },
-      { emoji: "💃", label: "Dance", prompt: "She dances sensually, moving her hips and body to music" },
-      { emoji: "😘", label: "Wink", prompt: "She winks and smiles seductively at the camera" },
+      { emoji: "🔥", label: "Undress", prompt: "The woman slowly takes off her clothes seductively, revealing her body" },
+      { emoji: "🍑", label: "Twerk", prompt: "She turns around and twerks, her body moving rhythmically" },
+      { emoji: "💋", label: "Kiss", prompt: "She blows a kiss to the camera and winks flirtatiously" },
+      { emoji: "🙈", label: "Tease", prompt: "She teases by pulling down her top slightly, playful expression" },
+      { emoji: "💃", label: "Dance", prompt: "She dances sensually, moving her hips and running hands over body" },
+      { emoji: "😘", label: "Wink", prompt: "She winks and smiles seductively at the camera, bites lip" },
+      { emoji: "🔄", label: "Turn", prompt: "She slowly turns around showing her body from all angles" },
+      { emoji: "👋", label: "Wave", prompt: "She waves hello cutely then poses with hand on hip" },
+      { emoji: "💨", label: "Hair", prompt: "Wind blows her hair dramatically, she looks stunning" },
+      { emoji: "🤳", label: "Selfie", prompt: "She takes a selfie pose, duck lips, peace sign, cute angles" },
+      { emoji: "😏", label: "Smirk", prompt: "She gives a knowing smirk and raises one eyebrow seductively" },
+      { emoji: "🫦", label: "Lips", prompt: "She licks her lips slowly and sensually while looking at camera" },
     ];
     
     let selectedImage = null;
@@ -633,7 +719,7 @@
           // Show result
           const mediaHtml = selectedType === 'video'
             ? `<video src="${result.result_url}" class="result-media" controls autoplay loop playsinline></video>`
-            : `<img src="${result.result_url}" class="result-media" alt="Result">`;
+            : `<img src="${result.result_url}" class="result-media" alt="Result" onclick="openModal('${result.result_url}')" style="cursor:pointer;">`;
           
           jobCard.innerHTML = `
             <div class="job-header">
@@ -721,11 +807,11 @@
       const item = history[index];
       if (!item) return;
       
-      // Open in fullscreen or show modal
+      // Videos open in new tab, images in modal
       if (item.type === 'video') {
         window.open(item.url, '_blank');
       } else {
-        window.open(item.url, '_blank');
+        openModal(item.url);
       }
     }
     
@@ -779,6 +865,42 @@
         case 'error': tg.HapticFeedback.notificationOccurred('error'); break;
       }
     }
+    
+    // Modal functions
+    let currentModalUrl = null;
+    
+    function openModal(url) {
+      haptic('light');
+      currentModalUrl = url;
+      const modal = document.getElementById('modal');
+      const content = document.getElementById('modalContent');
+      content.src = url;
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      
+      // Set up action buttons
+      document.getElementById('modalSave').onclick = () => saveResult(url);
+      document.getElementById('modalShare').onclick = () => shareResult(url);
+    }
+    
+    function closeModal(event) {
+      // Close only if clicking backdrop or close button
+      if (event && event.target !== event.currentTarget && !event.target.classList.contains('modal-close')) {
+        return;
+      }
+      haptic('light');
+      const modal = document.getElementById('modal');
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
+      currentModalUrl = null;
+    }
+    
+    // Close modal on back button
+    window.addEventListener('popstate', () => {
+      if (document.getElementById('modal').classList.contains('active')) {
+        closeModal();
+      }
+    });
   </script>
 </body>
 </html>
