@@ -593,35 +593,51 @@
     
     // Send results and close
     function sendResultsAndClose() {
-      if (!tg) return;
+      alert('Button clicked! Results: ' + sessionResults.length); // DEBUG
+      
+      if (!tg) {
+        alert('No Telegram WebApp!');
+        return;
+      }
       
       if (sessionResults.length > 0) {
-        console.log('Sending results:', sessionResults.length);
-        tg.sendData(JSON.stringify({
+        const data = JSON.stringify({
           action: 'results',
           results: sessionResults,
           count: sessionResults.length
-        }));
+        });
+        console.log('Sending:', data);
+        alert('Sending: ' + sessionResults.length + ' results'); // DEBUG
+        tg.sendData(data);
         // sendData automatically closes the mini-app
       } else {
+        alert('No results to send, closing');
         tg.close();
       }
     }
     
     // Setup MainButton as "Done" button - only show when results exist
     if (tg) {
-      tg.MainButton.setText('Send to Chat');
-      tg.MainButton.color = '#7c3aed';
-      tg.MainButton.textColor = '#ffffff';
-      tg.MainButton.hide(); // Hidden initially
+      // MainButton setup
+      tg.MainButton.setParams({
+        text: 'Send to Chat',
+        color: '#7c3aed',
+        text_color: '#ffffff',
+        is_active: true,
+        is_visible: false
+      });
       
-      tg.MainButton.onClick(sendResultsAndClose);
+      tg.MainButton.onClick(function() {
+        sendResultsAndClose();
+      });
       
       // Show button only when results exist
       function updateDoneButton() {
         if (sessionResults.length > 0) {
-          tg.MainButton.setText(`Send ${sessionResults.length} to Chat`);
-          tg.MainButton.show();
+          tg.MainButton.setParams({
+            text: 'Send ' + sessionResults.length + ' to Chat',
+            is_visible: true
+          });
         } else {
           tg.MainButton.hide();
         }
