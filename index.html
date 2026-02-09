@@ -608,21 +608,22 @@
       }
     }
     
-    // Setup MainButton as "Done" button
+    // Setup MainButton as "Done" button - only show when results exist
     if (tg) {
-      tg.MainButton.setText('Done');
+      tg.MainButton.setText('Send to Chat');
       tg.MainButton.color = '#7c3aed';
       tg.MainButton.textColor = '#ffffff';
-      tg.MainButton.show();
+      tg.MainButton.hide(); // Hidden initially
       
       tg.MainButton.onClick(sendResultsAndClose);
       
-      // Update button text when results exist
+      // Show button only when results exist
       function updateDoneButton() {
         if (sessionResults.length > 0) {
-          tg.MainButton.setText(`Done (${sessionResults.length} results)`);
+          tg.MainButton.setText(`Send ${sessionResults.length} to Chat`);
+          tg.MainButton.show();
         } else {
-          tg.MainButton.setText('Done');
+          tg.MainButton.hide();
         }
       }
       
