@@ -591,22 +591,49 @@
       console.log('Telegram WebApp not available');
     }
     
-    // Auto-send all results when mini-app closes
-    function sendResultsOnClose() {
-      if (!tg || sessionResults.length === 0) return;
+    // Send results and close
+    function sendResultsAndClose() {
+      if (!tg) return;
       
-      console.log('Sending results on close:', sessionResults.length);
-      
-      tg.sendData(JSON.stringify({
-        action: 'results',
-        results: sessionResults,
-        count: sessionResults.length
-      }));
+      if (sessionResults.length > 0) {
+        console.log('Sending results:', sessionResults.length);
+        tg.sendData(JSON.stringify({
+          action: 'results',
+          results: sessionResults,
+          count: sessionResults.length
+        }));
+        // sendData automatically closes the mini-app
+      } else {
+        tg.close();
+      }
     }
     
-    // Send on close
-    window.addEventListener('pagehide', sendResultsOnClose);
-    window.addEventListener('beforeunload', sendResultsOnClose);
+    // Setup MainButton as "Done" button
+    if (tg) {
+      tg.MainButton.setText('Done');
+      tg.MainButton.color = '#7c3aed';
+      tg.MainButton.textColor = '#ffffff';
+      tg.MainButton.show();
+      
+      tg.MainButton.onClick(sendResultsAndClose);
+      
+      // Update button text when results exist
+      function updateDoneButton() {
+        if (sessionResults.length > 0) {
+          tg.MainButton.setText(`Done (${sessionResults.length} results)`);
+        } else {
+          tg.MainButton.setText('Done');
+        }
+      }
+      
+      // Watch for new results
+      const originalPush = sessionResults.push.bind(sessionResults);
+      sessionResults.push = function(...args) {
+        const result = originalPush(...args);
+        updateDoneButton();
+        return result;
+      };
+    }
     
     // Render samples
     function renderSamples() {
