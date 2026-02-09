@@ -540,6 +540,7 @@
     let selectedType = 'image';
     let activeJobs = new Map();
     let history = JSON.parse(localStorage.getItem('eai_history') || '[]');
+    let sessionResults = []; // Track results to send on close
     
     // Initialize Telegram WebApp
     const tg = window.Telegram?.WebApp;
@@ -589,6 +590,60 @@
       document.getElementById('userId').textContent = 'ID: N/A';
       console.log('Telegram WebApp not available');
     }
+    
+    // Send batch results when mini-app closes
+    function sendBatchToChat() {
+      if (!tg || sessionResults.length === 0) return;
+      
+      console.log('Sending batch results:', sessionResults.length);
+      
+      tg.sendData(JSON.stringify({
+        action: 'batch_results',
+        results: sessionResults,
+        count: sessionResults.length,
+        user_id: tg.initDataUnsafe?.user?.id
+      }));
+      
+      sessionResults = []; // Clear after sending
+    }
+    
+    // Listen for mini-app close events
+    if (tg) {
+      // Back button pressed
+      tg.BackButton.onClick(() => {
+        if (sessionResults.length > 0) {
+          sendBatchToChat();
+        } else {
+          tg.close();
+        }
+      });
+      
+      // Main button can be used as "Done" button
+      tg.MainButton.setText('Done - Send to Chat');
+      tg.MainButton.onClick(() => {
+        sendBatchToChat();
+      });
+      
+      // Show main button only when there are results
+      function updateMainButton() {
+        if (sessionResults.length > 0) {
+          tg.MainButton.setText(`Send ${sessionResults.length} result${sessionResults.length > 1 ? 's' : ''} to Chat`);
+          tg.MainButton.show();
+        } else {
+          tg.MainButton.hide();
+        }
+      }
+      
+      // Check periodically for new results
+      setInterval(updateMainButton, 1000);
+    }
+    
+    // Fallback: beforeunload
+    window.addEventListener('beforeunload', () => {
+      if (sessionResults.length > 0 && tg) {
+        sendBatchToChat();
+      }
+    });
     
     // Render samples
     function renderSamples() {
@@ -808,6 +863,14 @@
           
           // Save to history
           addToHistory({ url: result.result_url, type: selectedType, preset: preset.label });
+          
+          // Track for batch send on close
+          sessionResults.push({
+            url: result.result_url,
+            type: selectedType,
+            preset: preset.label,
+            time: Date.now()
+          });
           
           // Show result
           const mediaHtml = selectedType === 'video'
