@@ -591,59 +591,22 @@
       console.log('Telegram WebApp not available');
     }
     
-    // Send batch results when mini-app closes
-    function sendBatchToChat() {
+    // Auto-send all results when mini-app closes
+    function sendResultsOnClose() {
       if (!tg || sessionResults.length === 0) return;
       
-      console.log('Sending batch results:', sessionResults.length);
+      console.log('Sending results on close:', sessionResults.length);
       
       tg.sendData(JSON.stringify({
-        action: 'batch_results',
+        action: 'results',
         results: sessionResults,
-        count: sessionResults.length,
-        user_id: tg.initDataUnsafe?.user?.id
+        count: sessionResults.length
       }));
-      
-      sessionResults = []; // Clear after sending
     }
     
-    // Listen for mini-app close events
-    if (tg) {
-      // Back button pressed
-      tg.BackButton.onClick(() => {
-        if (sessionResults.length > 0) {
-          sendBatchToChat();
-        } else {
-          tg.close();
-        }
-      });
-      
-      // Main button can be used as "Done" button
-      tg.MainButton.setText('Done - Send to Chat');
-      tg.MainButton.onClick(() => {
-        sendBatchToChat();
-      });
-      
-      // Show main button only when there are results
-      function updateMainButton() {
-        if (sessionResults.length > 0) {
-          tg.MainButton.setText(`Send ${sessionResults.length} result${sessionResults.length > 1 ? 's' : ''} to Chat`);
-          tg.MainButton.show();
-        } else {
-          tg.MainButton.hide();
-        }
-      }
-      
-      // Check periodically for new results
-      setInterval(updateMainButton, 1000);
-    }
-    
-    // Fallback: beforeunload
-    window.addEventListener('beforeunload', () => {
-      if (sessionResults.length > 0 && tg) {
-        sendBatchToChat();
-      }
-    });
+    // Send on close
+    window.addEventListener('pagehide', sendResultsOnClose);
+    window.addEventListener('beforeunload', sendResultsOnClose);
     
     // Render samples
     function renderSamples() {
