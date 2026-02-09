@@ -329,6 +329,46 @@
     }
     .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
     
+    /* User Info Card */
+    .user-info {
+      margin-bottom: 16px;
+    }
+    .user-card {
+      background: var(--bg2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .user-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    .user-details {
+      flex: 1;
+    }
+    .user-name {
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--text);
+    }
+    .user-username {
+      font-size: 13px;
+      color: var(--link);
+    }
+    .user-id {
+      font-size: 11px;
+      color: var(--hint);
+      font-family: monospace;
+    }
+    
     /* Fullscreen Modal */
     .modal {
       position: fixed;
@@ -396,6 +436,18 @@
 </head>
 <body>
   <div class="container">
+    <!-- User Info (Telegram) -->
+    <div class="user-info" id="userInfo" style="display: none;">
+      <div class="user-card">
+        <div class="user-avatar" id="userAvatar">👤</div>
+        <div class="user-details">
+          <div class="user-name" id="userName">-</div>
+          <div class="user-username" id="userUsername">-</div>
+          <div class="user-id" id="userId">ID: -</div>
+        </div>
+      </div>
+    </div>
+    
     <!-- Upload Area -->
     <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
       <div class="icon">📷</div>
@@ -495,6 +547,47 @@
       tg.ready();
       tg.expand();
       tg.enableClosingConfirmation();
+      
+      // Display user info
+      const user = tg.initDataUnsafe?.user;
+      if (user) {
+        document.getElementById('userInfo').style.display = 'block';
+        
+        // Name
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+        document.getElementById('userName').textContent = fullName || 'Unknown';
+        
+        // Username
+        document.getElementById('userUsername').textContent = user.username ? `@${user.username}` : 'No username';
+        
+        // ID
+        document.getElementById('userId').textContent = `ID: ${user.id}`;
+        
+        // Avatar - first letter of name
+        const initial = (user.first_name || 'U').charAt(0).toUpperCase();
+        document.getElementById('userAvatar').textContent = initial;
+        
+        // Log full user data for debugging
+        console.log('Telegram User:', user);
+        console.log('Full initData:', tg.initData);
+        console.log('initDataUnsafe:', tg.initDataUnsafe);
+      } else {
+        // Not in Telegram or no user data
+        document.getElementById('userInfo').style.display = 'block';
+        document.getElementById('userName').textContent = 'Not in Telegram';
+        document.getElementById('userUsername').textContent = 'Open in Telegram to see user info';
+        document.getElementById('userId').textContent = 'ID: N/A';
+        console.log('No Telegram user data available');
+        console.log('tg object:', tg);
+        console.log('initDataUnsafe:', tg?.initDataUnsafe);
+      }
+    } else {
+      // Show debug info when not in Telegram
+      document.getElementById('userInfo').style.display = 'block';
+      document.getElementById('userName').textContent = 'Telegram WebApp not detected';
+      document.getElementById('userUsername').textContent = 'Open via Telegram bot';
+      document.getElementById('userId').textContent = 'ID: N/A';
+      console.log('Telegram WebApp not available');
     }
     
     // Render samples
